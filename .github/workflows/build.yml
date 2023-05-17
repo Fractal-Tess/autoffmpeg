@@ -9,48 +9,50 @@ on:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           submodules: recursive
 
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm yasm libx264-dev libfdk-aac-dev libmp3lame-dev libopus-dev libssl-dev
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Move into ffmpeg dir
-        run: cd ./FFmpeg
-
       - name: Configure
+        working-directory: ./FFmpeg
         run: ./configure --disable-shared --enable-static --enable-libx264 --enable-gpl --enable-libfdk_aac --enable-libmp3lame --enable-libopus --enable-nonfree --enable-openssl
 
       - name: Make
+        working-directory: ./FFmpeg
         run: make
 
       - name: Get triplet
         id: triplet
-        run: triplet=$(rustc -Vv | rg host | cut -d " " -f 2)
+        run: echo $(TRIPLET=$(rustc -Vv | rg host | cut -d " " -f 2)) >> "$GITHUB_OUTPUT"
 
-      - name: Create Release
+      - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
+          tag_name: v0.0.${{github.run_number}}
           release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
 
-      - name: Upload Binary
+      - name: Upload assets
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ffmpeg
-          asset_name: ffmpeg_${{ steps.triplet.outputs.triplet }}
+          asset_path: ${{ github.workspace }}/FFmpeg/ffmpeg
+          asset_name: ffmpeg-${{ steps.triplet.outputs.TRIPLET }}
           asset_content_type: application/octet-stream
