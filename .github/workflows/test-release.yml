@@ -1,0 +1,23 @@
+name: Test release
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        platform: [ubuntu-20.04]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
